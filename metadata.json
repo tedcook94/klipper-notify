@@ -1,0 +1,12 @@
+{
+  "name": "klipper_notify",
+  "author": "tedcook94",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Configurable notifications for Klipper/Moonraker",
+  "update_manager": {
+    "type": "git_repo",
+    "path": "~/klipper_notify",
+    "origin": "https://github.com/tedcook94/klipper_notify.git"
+  }
+}

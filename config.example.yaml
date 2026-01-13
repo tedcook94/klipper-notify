@@ -1,0 +1,18 @@
+pushover:
+  user_key: "YOUR_USER_KEY"
+  app_token: "YOUR_APP_TOKEN"
+  # device:
+
+notifications:
+  printer_name: "Voron"
+  progress_interval_minutes: 60
+  notify_after_first_layer: true
+  notify_print_start: false
+  notify_print_end: true
+  notify_print_cancelled: true
+  notify_print_error: true
+
+webcam:
+  snapshot_url: "http://localhost:8080/webcam?action=snapshot"
+
+logging_level: INFO

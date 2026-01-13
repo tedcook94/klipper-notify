@@ -1,0 +1,4 @@
+pathlib
+PyYAML
+requests
+websocket-client
