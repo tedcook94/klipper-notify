@@ -261,7 +261,16 @@ class NotifyService:
             self.state["last_print_state"] = new_print_state
 
             if new_print_state == "printing":
+                # Try to get filename from websocket event first
                 gcode = params.get("virtual_sdcard", {}).get("file_path")
+                # If not in event, query directly
+                if not gcode:
+                    try:
+                        status = self.query(["virtual_sdcard"])
+                        gcode = status.get("virtual_sdcard", {}).get("file_path")
+                    except Exception:
+                        log.exception("Failed to query G-code filename")
+                
                 if gcode:
                     self.state["second_layer_offset"] = get_second_layer_offset(gcode)
                 else:
