@@ -117,6 +117,35 @@ class NotifyService:
         r.raise_for_status()
         return r.json()["result"]["status"]
 
+    def wait_for_klipper_ready(self):
+        log.info("Waiting for Klipper to be ready...")
+        while True:
+            try:
+                r = requests.get(f"{MOONRAKER_HTTP}/server/info", timeout=5)
+                r.raise_for_status()
+                info = r.json()["result"]
+                klippy_state = info.get("klippy_state")
+                
+                if klippy_state == "ready":
+                    log.info("Klipper is ready")
+                    return
+                else:
+                    log.info("Klipper state is '%s', waiting...", klippy_state)
+                    time.sleep(2)
+            except Exception:
+                log.exception("Error checking Klipper status, retrying")
+                time.sleep(5)
+
+    def initialize_print_state(self):
+        try:
+            status = self.query(["print_stats"])
+            current_state = status.get("print_stats", {}).get("state", "standby")
+            self.state["last_print_state"] = current_state
+            log.info("Initialized print state: %s", current_state)
+        except Exception:
+            log.exception("Failed to initialize print state, defaulting to standby")
+            self.state["last_print_state"] = "standby"
+
     def pushover(self, title, message, image=None):
         log.info("Sending notification: %s", title)
         device = self.cfg["pushover"].get("device")
@@ -283,6 +312,9 @@ class NotifyService:
             log.exception("Websocket handler error")
 
     def websocket_loop(self):
+        self.wait_for_klipper_ready()
+        self.initialize_print_state()
+        
         while True:
             try:
                 log.info("Connecting to Moonraker websocket")
