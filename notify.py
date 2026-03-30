@@ -88,6 +88,7 @@ def load_config():
 class NotifyService:
     def __init__(self, config):
         self.cfg = config
+        self.ws = None
         self.reset_state()
 
     def reset_state(self):
@@ -216,9 +217,7 @@ class NotifyService:
                 log.exception("Poll error")
             time.sleep(10)
 
-    def ws_subscribe(self, ws):
-        log.info("Websocket connected")
-
+    def _subscribe(self, ws):
         subscribe_msg = {
             "jsonrpc": "2.0",
             "method": "printer.objects.subscribe",
@@ -231,15 +230,29 @@ class NotifyService:
             },
             "id": 1,
         }
-
         ws.send(json.dumps(subscribe_msg))
         log.info("Subscribed to printer objects")
+
+    def ws_subscribe(self, ws):
+        log.info("Websocket connected")
+        self._subscribe(ws)
 
     def ws_handler(self, ws, message):
         try:
             log.debug("Websocket event: %s", message)
             data = json.loads(message)
             method = data.get("method")
+
+            if method == "notify_klippy_ready":
+                log.info("Klipper firmware is ready, re-subscribing")
+                self.reset_state()
+                self.initialize_print_state()
+                self._subscribe(ws)
+                return
+
+            if method == "notify_klippy_disconnected":
+                log.warning("Klipper firmware disconnected")
+                return
 
             if method != "notify_status_update" :
                 return
@@ -320,6 +333,12 @@ class NotifyService:
         except Exception:
             log.exception("Websocket handler error")
 
+    def ws_close(self, ws, close_status_code, close_msg):
+        log.warning("Websocket closed (code=%s, msg=%s)", close_status_code, close_msg)
+
+    def ws_error(self, ws, error):
+        log.error("Websocket error: %s", error)
+
     def websocket_loop(self):
         self.wait_for_klipper_ready()
         self.initialize_print_state()
@@ -331,11 +350,19 @@ class NotifyService:
                     MOONRAKER_WS,
                     on_open=self.ws_subscribe,
                     on_message=self.ws_handler,
+                    on_close=self.ws_close,
+                    on_error=self.ws_error,
                 )
+                self.ws = ws
                 ws.run_forever()
             except Exception:
                 log.exception("Websocket disconnected, retrying")
-                time.sleep(5)
+            
+            log.info("Websocket disconnected, waiting for Klipper before reconnecting")
+            time.sleep(5)
+            self.wait_for_klipper_ready()
+            self.reset_state()
+            self.initialize_print_state()
 
 def main():
     cfg = load_config()
